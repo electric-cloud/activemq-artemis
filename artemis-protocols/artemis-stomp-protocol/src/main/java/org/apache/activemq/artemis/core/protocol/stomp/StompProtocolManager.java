@@ -23,22 +23,29 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 
-import io.netty.channel.ChannelPipeline;
 import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
 import org.apache.activemq.artemis.api.core.ActiveMQExceptionType;
 import org.apache.activemq.artemis.api.core.BaseInterceptor;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.api.core.client.ActiveMQClient;
+import org.apache.activemq.artemis.api.core.management.CoreNotificationType;
+import org.apache.activemq.artemis.api.core.management.ManagementHelper;
 import org.apache.activemq.artemis.core.io.IOCallback;
 import org.apache.activemq.artemis.core.message.impl.CoreMessage;
+import org.apache.activemq.artemis.core.postoffice.BindingType;
 import org.apache.activemq.artemis.core.remoting.CertificateUtil;
 import org.apache.activemq.artemis.core.remoting.impl.netty.NettyServerConnection;
 import org.apache.activemq.artemis.core.remoting.impl.netty.TransportConstants;
+import org.apache.activemq.artemis.core.server.ActiveMQMessageBundle;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.core.server.ServerSession;
+import org.apache.activemq.artemis.core.server.management.ManagementService;
+import org.apache.activemq.artemis.core.server.management.Notification;
+import org.apache.activemq.artemis.core.server.management.NotificationListener;
 import org.apache.activemq.artemis.spi.core.protocol.AbstractProtocolManager;
 import org.apache.activemq.artemis.spi.core.protocol.ConnectionEntry;
 import org.apache.activemq.artemis.spi.core.protocol.ProtocolManagerFactory;
@@ -49,13 +56,18 @@ import org.apache.activemq.artemis.spi.core.security.ActiveMQSecurityManager;
 import org.apache.activemq.artemis.spi.core.security.ActiveMQSecurityManager2;
 import org.apache.activemq.artemis.spi.core.security.ActiveMQSecurityManager3;
 import org.apache.activemq.artemis.utils.UUIDGenerator;
+import org.apache.activemq.artemis.utils.collections.TypedProperties;
+
+import io.netty.channel.ChannelPipeline;
 
 import static org.apache.activemq.artemis.core.protocol.stomp.ActiveMQStompProtocolMessageBundle.BUNDLE;
 
 /**
  * StompProtocolManager
  */
-public class StompProtocolManager extends AbstractProtocolManager<StompFrame, StompFrameInterceptor, StompConnection> {
+public class StompProtocolManager extends AbstractProtocolManager<StompFrame, StompFrameInterceptor, StompConnection>
+    implements NotificationListener
+{
 
    private static final List<String> websocketRegistryNames = Arrays.asList("v10.stomp", "v11.stomp", "v12.stomp");
 
@@ -73,6 +85,12 @@ public class StompProtocolManager extends AbstractProtocolManager<StompFrame, St
    private final List<StompFrameInterceptor> incomingInterceptors;
    private final List<StompFrameInterceptor> outgoingInterceptors;
 
+   /**
+    * Map addresses names to (single) queue names. Allows destination to be
+    * specified as an address instead of queue.
+    */
+   private final Map<String,String> queues = new ConcurrentHashMap<>();
+
    // Static --------------------------------------------------------
 
    // Constructors --------------------------------------------------
@@ -84,6 +102,10 @@ public class StompProtocolManager extends AbstractProtocolManager<StompFrame, St
       this.factory = factory;
       this.server = server;
       this.executor = server.getExecutorFactory().getExecutor();
+      ManagementService service = server.getManagementService();
+      if (service != null) {
+         service.addNotificationListener(this);
+      }
       this.incomingInterceptors = incomingInterceptors;
       this.outgoingInterceptors = outgoingInterceptors;
    }
@@ -374,6 +396,19 @@ public class StompProtocolManager extends AbstractProtocolManager<StompFrame, St
                          String selector,
                          String ack,
                          boolean noLocal) throws Exception {
+       // Map address to queue name to allow subscription to addresses so that
+       // clients don't have to know node-specified queue name.
+       String queue = queues.get(destination);
+ 
+       if (queue != null)
+       {
+          if (ActiveMQServerLogger.LOGGER.isDebugEnabled())
+          {
+             ActiveMQServerLogger.LOGGER.debugf("Mapping address %s to queue %s", destination, queue);
+          }
+          destination = queue;
+       }
+ 
       StompSession stompSession = getSession(connection);
       stompSession.setNoLocal(noLocal);
       if (stompSession.containsSubscription(subscriptionID)) {
@@ -416,6 +451,51 @@ public class StompProtocolManager extends AbstractProtocolManager<StompFrame, St
       return server.getPostOffice().getAddressInfo(SimpleString.toSimpleString(destination)) != null;
    }
 
+   @Override
+   public void onNotification(Notification notification) {
+      if (!(notification.getType() instanceof CoreNotificationType))
+         return;
+
+      CoreNotificationType type = (CoreNotificationType) notification.getType();
+
+      TypedProperties props = notification.getProperties();
+
+      switch (type) {
+         case BINDING_ADDED: {
+            if (!props.containsProperty(ManagementHelper.HDR_BINDING_TYPE)) {
+               throw ActiveMQMessageBundle.BUNDLE.bindingTypeNotSpecified();
+            }
+
+            Integer bindingType = props.getIntProperty(ManagementHelper.HDR_BINDING_TYPE);
+
+            if (bindingType == BindingType.DIVERT_INDEX) {
+               return;
+            }
+
+            SimpleString address = props.getSimpleStringProperty(ManagementHelper.HDR_ADDRESS);
+
+            // If the queue is on this node (distance == 0) then stash the queue name
+            // so that we can substitute the local queue name for the address in subscriptions.
+            SimpleString distance = props.getSimpleStringProperty(ManagementHelper.HDR_DISTANCE);
+
+            if (distance == null || "0".equals(distance.toString()))
+            {
+               SimpleString queue = props.getSimpleStringProperty(ManagementHelper.HDR_ROUTING_NAME);
+
+               if (queue != null)
+               {
+                  queues.put(address.toString(), queue.toString());
+               }
+            }
+
+            break;
+         }
+         default:
+            //ignore all others
+            break;
+      }
+   }
+   
    public ActiveMQServer getServer() {
       return server;
    }

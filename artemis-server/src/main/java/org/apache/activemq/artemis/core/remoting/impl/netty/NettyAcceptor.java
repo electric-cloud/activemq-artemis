@@ -522,12 +522,12 @@ public class NettyAcceptor extends AbstractAcceptor {
       String[] protocols = engine.getEnabledProtocols();
       Set<String> set = new HashSet<>();
       for (String s : protocols) {
-         if (s.equalsIgnoreCase("SSLv3") || s.equals("SSLv2Hello")) {
-            if (!warningPrinted.get()) {
-               ActiveMQServerLogger.LOGGER.disallowedProtocol(s, name);
-            }
-            continue;
-         }
+//         if (s.equalsIgnoreCase("SSLv3") || s.equals("SSLv2Hello")) {
+//            if (!warningPrinted.get()) {
+//               ActiveMQServerLogger.LOGGER.disallowedProtocol(s, name);
+//            }
+//            continue;
+//         }
          set.add(s);
       }
 
