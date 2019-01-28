@@ -150,6 +150,9 @@ public class SecurityStoreImpl implements SecurityStore, HierarchicalRepositoryC
       return null;
    }
 
+   // Hack to make the address available to security manager
+   public static final ThreadLocal<String> ADDRESS = new ThreadLocal<String>();
+
    @Override
    public void check(final SimpleString address,
                      final CheckType checkType,
@@ -174,32 +177,41 @@ public class SecurityStoreImpl implements SecurityStore, HierarchicalRepositoryC
             return;
          }
 
-         final boolean validated;
-         if (securityManager instanceof ActiveMQSecurityManager3) {
-            final ActiveMQSecurityManager3 securityManager3 = (ActiveMQSecurityManager3) securityManager;
-            validated = securityManager3.validateUserAndRole(user, session.getPassword(), roles, checkType, saddress, session.getRemotingConnection()) != null;
-         } else if (securityManager instanceof ActiveMQSecurityManager2) {
-            final ActiveMQSecurityManager2 securityManager2 = (ActiveMQSecurityManager2) securityManager;
-            validated = securityManager2.validateUserAndRole(user, session.getPassword(), roles, checkType, saddress, session.getRemotingConnection());
-         } else {
-            validated = securityManager.validateUserAndRole(user, session.getPassword(), roles, checkType);
+         ADDRESS.set(saddress);
+ 
+         try {
+             final boolean validated;
+             if (securityManager instanceof ActiveMQSecurityManager3) {
+                final ActiveMQSecurityManager3 securityManager3 = (ActiveMQSecurityManager3) securityManager;
+                validated = securityManager3.validateUserAndRole(user, session.getPassword(), roles, checkType, saddress, session.getRemotingConnection()) != null;
+             } else if (securityManager instanceof ActiveMQSecurityManager2) {
+                final ActiveMQSecurityManager2 securityManager2 = (ActiveMQSecurityManager2) securityManager;
+                validated = securityManager2.validateUserAndRole(user, session.getPassword(), roles, checkType, saddress, session.getRemotingConnection());
+             } else {
+                validated = securityManager.validateUserAndRole(user, session.getPassword(), roles, checkType);
+             }
+
+             if (!validated) {
+                if (notificationService != null) {
+                   TypedProperties props = new TypedProperties();
+
+                   props.putSimpleStringProperty(ManagementHelper.HDR_ADDRESS, address);
+                   props.putSimpleStringProperty(ManagementHelper.HDR_CHECK_TYPE, new SimpleString(checkType.toString()));
+                   props.putSimpleStringProperty(ManagementHelper.HDR_USER, SimpleString.toSimpleString(user));
+
+                   Notification notification = new Notification(null, CoreNotificationType.SECURITY_PERMISSION_VIOLATION, props);
+
+                   notificationService.sendNotification(notification);
+                }
+
+                throw ActiveMQMessageBundle.BUNDLE.userNoPermissions(session.getUsername(), checkType, saddress);
+		 	 }
+         }
+         finally
+         {
+            ADDRESS.set(null);
          }
 
-         if (!validated) {
-            if (notificationService != null) {
-               TypedProperties props = new TypedProperties();
-
-               props.putSimpleStringProperty(ManagementHelper.HDR_ADDRESS, address);
-               props.putSimpleStringProperty(ManagementHelper.HDR_CHECK_TYPE, new SimpleString(checkType.toString()));
-               props.putSimpleStringProperty(ManagementHelper.HDR_USER, SimpleString.toSimpleString(user));
-
-               Notification notification = new Notification(null, CoreNotificationType.SECURITY_PERMISSION_VIOLATION, props);
-
-               notificationService.sendNotification(notification);
-            }
-
-            throw ActiveMQMessageBundle.BUNDLE.userNoPermissions(session.getUsername(), checkType, saddress);
-         }
          // if we get here we're granted, add to the cache
          ConcurrentHashSet<SimpleString> set = new ConcurrentHashSet<>();
          ConcurrentHashSet<SimpleString> act = cache.putIfAbsent(user + "." + checkType.name(), set);
