@@ -66,8 +66,7 @@ import static org.apache.activemq.artemis.core.protocol.stomp.ActiveMQStompProto
  * StompProtocolManager
  */
 public class StompProtocolManager extends AbstractProtocolManager<StompFrame, StompFrameInterceptor, StompConnection>
-    implements NotificationListener
-{
+    implements NotificationListener {
 
    private static final List<String> websocketRegistryNames = Arrays.asList("v10.stomp", "v11.stomp", "v12.stomp");
 
@@ -396,19 +395,17 @@ public class StompProtocolManager extends AbstractProtocolManager<StompFrame, St
                          String selector,
                          String ack,
                          boolean noLocal) throws Exception {
-       // Map address to queue name to allow subscription to addresses so that
-       // clients don't have to know node-specified queue name.
-       String queue = queues.get(destination);
- 
-       if (queue != null)
-       {
-          if (ActiveMQServerLogger.LOGGER.isDebugEnabled())
-          {
-             ActiveMQServerLogger.LOGGER.debugf("Mapping address %s to queue %s", destination, queue);
-          }
-          destination = queue;
-       }
- 
+      // Map address to queue name to allow subscription to addresses so that
+      // clients don't have to know node-specified queue name.
+      String queue = queues.get(destination);
+
+      if (queue != null) {
+         if (ActiveMQServerLogger.LOGGER.isDebugEnabled()) {
+            ActiveMQServerLogger.LOGGER.debugf("Mapping address %s to queue %s", destination, queue);
+         }
+         destination = queue;
+      }
+
       StompSession stompSession = getSession(connection);
       stompSession.setNoLocal(noLocal);
       if (stompSession.containsSubscription(subscriptionID)) {
@@ -478,12 +475,10 @@ public class StompProtocolManager extends AbstractProtocolManager<StompFrame, St
             // so that we can substitute the local queue name for the address in subscriptions.
             SimpleString distance = props.getSimpleStringProperty(ManagementHelper.HDR_DISTANCE);
 
-            if (distance == null || "0".equals(distance.toString()))
-            {
+            if (distance == null || "0".equals(distance.toString())) {
                SimpleString queue = props.getSimpleStringProperty(ManagementHelper.HDR_ROUTING_NAME);
 
-               if (queue != null)
-               {
+               if (queue != null) {
                   queues.put(address.toString(), queue.toString());
                }
             }
@@ -495,7 +490,7 @@ public class StompProtocolManager extends AbstractProtocolManager<StompFrame, St
             break;
       }
    }
-   
+
    public ActiveMQServer getServer() {
       return server;
    }
