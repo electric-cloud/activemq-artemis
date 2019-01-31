@@ -151,7 +151,7 @@ public class SecurityStoreImpl implements SecurityStore, HierarchicalRepositoryC
    }
 
    // Hack to make the address available to security manager
-   public static final ThreadLocal<String> ADDRESS = new ThreadLocal<String>();
+   public static final ThreadLocal<String> ADDRESS = new ThreadLocal<>();
 
    @Override
    public void check(final SimpleString address,
@@ -178,37 +178,35 @@ public class SecurityStoreImpl implements SecurityStore, HierarchicalRepositoryC
          }
 
          ADDRESS.set(saddress);
- 
+
          try {
-             final boolean validated;
-             if (securityManager instanceof ActiveMQSecurityManager3) {
-                final ActiveMQSecurityManager3 securityManager3 = (ActiveMQSecurityManager3) securityManager;
-                validated = securityManager3.validateUserAndRole(user, session.getPassword(), roles, checkType, saddress, session.getRemotingConnection()) != null;
-             } else if (securityManager instanceof ActiveMQSecurityManager2) {
-                final ActiveMQSecurityManager2 securityManager2 = (ActiveMQSecurityManager2) securityManager;
-                validated = securityManager2.validateUserAndRole(user, session.getPassword(), roles, checkType, saddress, session.getRemotingConnection());
-             } else {
-                validated = securityManager.validateUserAndRole(user, session.getPassword(), roles, checkType);
-             }
+            final boolean validated;
+            if (securityManager instanceof ActiveMQSecurityManager3) {
+               final ActiveMQSecurityManager3 securityManager3 = (ActiveMQSecurityManager3) securityManager;
+               validated = securityManager3.validateUserAndRole(user, session.getPassword(), roles, checkType, saddress, session.getRemotingConnection()) != null;
+            } else if (securityManager instanceof ActiveMQSecurityManager2) {
+               final ActiveMQSecurityManager2 securityManager2 = (ActiveMQSecurityManager2) securityManager;
+               validated = securityManager2.validateUserAndRole(user, session.getPassword(), roles, checkType, saddress, session.getRemotingConnection());
+            } else {
+               validated = securityManager.validateUserAndRole(user, session.getPassword(), roles, checkType);
+            }
 
-             if (!validated) {
-                if (notificationService != null) {
-                   TypedProperties props = new TypedProperties();
+            if (!validated) {
+               if (notificationService != null) {
+                  TypedProperties props = new TypedProperties();
 
-                   props.putSimpleStringProperty(ManagementHelper.HDR_ADDRESS, address);
-                   props.putSimpleStringProperty(ManagementHelper.HDR_CHECK_TYPE, new SimpleString(checkType.toString()));
-                   props.putSimpleStringProperty(ManagementHelper.HDR_USER, SimpleString.toSimpleString(user));
+                  props.putSimpleStringProperty(ManagementHelper.HDR_ADDRESS, address);
+                  props.putSimpleStringProperty(ManagementHelper.HDR_CHECK_TYPE, new SimpleString(checkType.toString()));
+                  props.putSimpleStringProperty(ManagementHelper.HDR_USER, SimpleString.toSimpleString(user));
 
-                   Notification notification = new Notification(null, CoreNotificationType.SECURITY_PERMISSION_VIOLATION, props);
+                  Notification notification = new Notification(null, CoreNotificationType.SECURITY_PERMISSION_VIOLATION, props);
 
-                   notificationService.sendNotification(notification);
-                }
+                  notificationService.sendNotification(notification);
+               }
 
-                throw ActiveMQMessageBundle.BUNDLE.userNoPermissions(session.getUsername(), checkType, saddress);
-		 	 }
-         }
-         finally
-         {
+               throw ActiveMQMessageBundle.BUNDLE.userNoPermissions(session.getUsername(), checkType, saddress);
+            }
+         } finally {
             ADDRESS.set(null);
          }
 

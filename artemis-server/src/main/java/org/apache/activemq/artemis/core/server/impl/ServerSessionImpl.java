@@ -410,11 +410,11 @@ public class ServerSessionImpl implements ServerSession, FailureListener {
       return this.createConsumer(consumerID, queueName, filterString, browseOnly, true, null);
    }
 
-    /**
-     * Hack to make filterString available to security manager.
-     */
-    public static final ThreadLocal<SimpleString> FILTER_STRING = new ThreadLocal<>();
- 
+   /**
+    * Hack to make filterString available to security manager.
+    */
+   public static final ThreadLocal<SimpleString> FILTER_STRING = new ThreadLocal<>();
+
    @Override
    public ServerConsumer createConsumer(final long consumerID,
                                         final SimpleString queueName,
@@ -430,10 +430,9 @@ public class ServerSessionImpl implements ServerSession, FailureListener {
 
       // Make filterString available to security manager
       FILTER_STRING.set(filterString);
- 
-      try
-      {
-	     if (browseOnly) {
+
+      try {
+         if (browseOnly) {
             try {
                securityCheck(binding.getAddress(), CheckType.BROWSE, this);
             } catch (Exception e) {
@@ -443,11 +442,10 @@ public class ServerSessionImpl implements ServerSession, FailureListener {
             try {
                securityCheck(binding.getAddress(), CheckType.CONSUME, this);
             } catch (Exception e) {
-               securityCheck(binding.getAddress().concat(".").concat(queueName), CheckType.CONSUME, this);}
+               securityCheck(binding.getAddress().concat(".").concat(queueName), CheckType.CONSUME, this);
+            }
          }
-      }
-      finally
-      {
+      } finally {
          FILTER_STRING.set(null);
       }
 
