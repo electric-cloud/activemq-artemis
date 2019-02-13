@@ -456,6 +456,20 @@ public class StompProtocolManager extends AbstractProtocolManager<StompFrame, St
       TypedProperties props = notification.getProperties();
 
       switch (type) {
+         case ACCEPTOR_STARTED:
+            // Add existing bindings
+            server.getPostOffice()
+                  .getAllBindings()
+                  .entrySet()
+                  .stream()
+                  .filter(entry ->
+                          entry.getValue()
+                           .getDistance() == 0)
+                  .forEach(entry ->
+                          queues.put(entry.getValue().getAddress()
+                                            .toString(), entry.getKey().toString()));
+            break;
+
          case BINDING_ADDED: {
             if (!props.containsProperty(ManagementHelper.HDR_BINDING_TYPE)) {
                throw ActiveMQMessageBundle.BUNDLE.bindingTypeNotSpecified();
@@ -483,6 +497,23 @@ public class StompProtocolManager extends AbstractProtocolManager<StompFrame, St
 
             break;
          }
+
+         case BINDING_REMOVED:
+            SimpleString address = props.getSimpleStringProperty(ManagementHelper.HDR_ADDRESS);
+
+            // If the queue is on this node (distance == 0) then remove the address
+            SimpleString distance = props.getSimpleStringProperty(ManagementHelper.HDR_DISTANCE);
+
+            if (distance == null || "0".equals(distance.toString())) {
+               SimpleString queue = props.getSimpleStringProperty(ManagementHelper.HDR_ROUTING_NAME);
+
+               if (queue != null) {
+                  queues.remove(address.toString());
+               }
+            }
+
+            break;
+
          default:
             //ignore all others
             break;
