@@ -682,7 +682,10 @@ public final class StompConnection implements RemotingConnection {
                   String durableSubscriptionName,
                   boolean noLocal,
                   RoutingType subscriptionType) throws ActiveMQStompException {
-      autoCreateDestinationIfPossible(destination, subscriptionType);
+      // Do not auto-create the destination (address) when subscribing to a queue
+      // We want to address to be created by the queue creator who has the required
+      // permissions to do so.
+      // autoCreateDestinationIfPossible(destination, subscriptionType);
       checkDestination(destination);
       checkRoutingSemantics(destination, subscriptionType);
       if (noLocal) {
