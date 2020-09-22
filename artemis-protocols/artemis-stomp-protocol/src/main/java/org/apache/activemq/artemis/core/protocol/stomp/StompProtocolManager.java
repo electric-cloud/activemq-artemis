@@ -395,16 +395,6 @@ public class StompProtocolManager extends AbstractProtocolManager<StompFrame, St
                          String selector,
                          String ack,
                          boolean noLocal) throws Exception {
-      // Map address to queue name to allow subscription to addresses so that
-      // clients don't have to know node-specified queue name.
-      String queue = queues.get(destination);
-
-      if (queue != null) {
-         if (ActiveMQServerLogger.LOGGER.isDebugEnabled()) {
-            ActiveMQServerLogger.LOGGER.debugf("Mapping address %s to queue %s", destination, queue);
-         }
-         destination = queue;
-      }
 
       StompSession stompSession = getSession(connection);
       stompSession.setNoLocal(noLocal);
@@ -524,5 +514,9 @@ public class StompProtocolManager extends AbstractProtocolManager<StompFrame, St
 
    public ActiveMQServer getServer() {
       return server;
+   }
+
+   public Map<String,String> getQueues() {
+      return queues;
    }
 }

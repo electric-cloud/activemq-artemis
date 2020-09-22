@@ -36,6 +36,7 @@ import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
 import org.apache.activemq.artemis.core.persistence.impl.journal.LargeServerMessageImpl;
 import org.apache.activemq.artemis.core.remoting.impl.netty.TransportConstants;
+import org.apache.activemq.artemis.core.server.ActiveMQServerLogger;
 import org.apache.activemq.artemis.core.server.LargeServerMessage;
 import org.apache.activemq.artemis.core.server.MessageReference;
 import org.apache.activemq.artemis.core.server.ServerConsumer;
@@ -254,7 +255,18 @@ public class StompSession implements SessionCallback {
                                String selector,
                                String ack) throws Exception {
       SimpleString address = SimpleString.toSimpleString(destination);
-      SimpleString queueName = SimpleString.toSimpleString(destination);
+      // Map address to queue name to allow subscription to addresses so that
+      // clients don't have to know node-specified queue name.
+      String queue = manager.getQueues().get(destination);
+      if (queue != null) {
+         if (ActiveMQServerLogger.LOGGER.isDebugEnabled()) {
+            ActiveMQServerLogger.LOGGER.debugf("Mapping address %s to queue %s", destination, queue);
+         }
+      } else {
+         queue = destination;
+      }
+
+      SimpleString queueName = SimpleString.toSimpleString(queue);
       SimpleString selectorSimple = SimpleString.toSimpleString(selector);
       boolean pubSub = false;
       final int receiveCredits = ack.equals(Stomp.Headers.Subscribe.AckModeValues.AUTO) ? -1 : consumerCredits;

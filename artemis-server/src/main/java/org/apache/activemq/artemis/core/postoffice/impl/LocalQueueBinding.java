@@ -77,9 +77,14 @@ public class LocalQueueBinding implements QueueBinding {
 
    @Override
    public SimpleString getRoutingName() {
-      if (queue.getRoutingType() == RoutingType.ANYCAST) {
+      // Use the queue name regardless of routing type. This is
+      // set as the HDR_ROUTING_NAME which is expected to be the
+      // queue name and is eventually used in StompProtocolManager
+      // to substitute the local queue name for the address in
+      // subscriptions.
+      /*if (queue.getRoutingType() == RoutingType.ANYCAST) {
          return address;
-      }
+      }*/
       return name;
    }
 
