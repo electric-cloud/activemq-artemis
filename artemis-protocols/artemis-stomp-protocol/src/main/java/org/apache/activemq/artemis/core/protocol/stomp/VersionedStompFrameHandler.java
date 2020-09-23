@@ -187,7 +187,10 @@ public abstract class VersionedStompFrameHandler {
          connection.validate();
          String destination = getDestination(frame);
          RoutingType routingType = getRoutingType(frame.getHeader(Headers.Send.DESTINATION_TYPE), frame.getHeader(Headers.Send.DESTINATION));
-         connection.autoCreateDestinationIfPossible(destination, routingType);
+         // Do not auto-create the destination (address) here.
+         // We want the address to be created by the queue creator who has the required
+         // permissions to do so.
+         //connection.autoCreateDestinationIfPossible(destination, routingType);
          connection.checkDestination(destination);
          connection.checkRoutingSemantics(destination, routingType);
          String txID = frame.getHeader(Stomp.Headers.TRANSACTION);
