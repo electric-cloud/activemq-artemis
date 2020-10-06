@@ -199,18 +199,15 @@
    </scm>
 
    <distributionManagement>
-      <site>
-         <!-- this needs to match a server in your settings.xml with upload settings -->
-         <id>activemq-website</id>
-         <!-- set the staging.siteURL in your ~/.m2/settings.xml in a release or other profile -->
-         <url>${staging.siteURL}/maven/${project.version}</url>
-         <!--<url>${site-repo-url}</url>-->
-      </site>
+      <repository>
+         <id>cloudbees-internal-staging</id>
+         <name>cloudbees-internal-staging</name>
+         <url>https://nexus-internal.cloudbees.com/service/local/staging/deploy/maven2</url>
+      </repository>
       <snapshotRepository>
-         <id>apache.snapshots.https</id>
-         <name>Apache Development Snapshot Repository</name>
-         <url>https://repository.apache.org/content/repositories/snapshots</url>
-         <uniqueVersion>false</uniqueVersion>
+            <id>cloudbees-internal-snapshots</id>
+            <name>cloudbees-internal-snapshots</name>
+            <url>https://nexus-internal.cloudbees.com/service/local/staging/deploy/maven2</url>
       </snapshotRepository>
    </distributionManagement>
 
@@ -816,6 +813,14 @@
                   <configuration>
                      <additionalparam>-Xdoclint:none</additionalparam>
                   </configuration>
+                  <executions>
+                     <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                           <goal>jar</goal>
+                        </goals>
+                     </execution>
+                  </executions>
                </plugin>
                <plugin>
                   <groupId>org.apache.maven.plugins</groupId>
@@ -850,6 +855,14 @@
                   <configuration>
                      <additionalparam>-Xdoclint:none</additionalparam>
                   </configuration>
+                  <executions>
+                     <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                           <goal>jar</goal>
+                        </goals>
+                     </execution>
+                  </executions>
                </plugin>
             </plugins>
          </build>
